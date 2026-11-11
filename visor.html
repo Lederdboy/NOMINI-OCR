@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="es" data-nomini-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self' blob: data:">
+  <title>NOMINI · Visor y Clasificación OCR</title>
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('nomini_theme') || localStorage.getItem('nomini-theme') || 'light';
+        document.documentElement.dataset.nominiTheme = t;
+      } catch (e) {}
+
+      // Interceptor global para que el navegador NUNCA muestre popups de "127.0.0.1:4173 dice" o "localhost"
+      window.alert = function(msg) {
+        if (typeof window.showNominiNotice === 'function') {
+          window.showNominiNotice(msg, 'Aviso del Sistema', 'info');
+        } else {
+          console.warn('[NOMINI Aviso]:', msg);
+        }
+      };
+      window.confirm = function(msg) {
+        console.warn('[NOMINI Confirm interceptado]:', msg);
+        return true;
+      };
+      window.prompt = function(msg, def) {
+        console.warn('[NOMINI Prompt interceptado]:', msg);
+        return def || '';
+      };
+    })();
+  </script>
+  <link rel="icon" id="app-favicon" type="image/png" sizes="32x32" href="./Logo/nomini.png?v=2">
+  <link rel="shortcut icon" type="image/png" href="./Logo/nomini.png?v=2">
+  <link rel="apple-touch-icon" href="./Logo/nomini.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Nunito+Sans:ital,opsz,wght@0,6..12,300;0,6..12,400;0,6..12,500;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./visor.css?v=2.5">
+  <link rel="stylesheet" href="./visorSplitter.css?v=2.5">
+  <link rel="stylesheet" href="./login.css?v=1.6">
+</head>
+<body>
+  <div class="visor-app">
+    <!-- TOPBAR CANÓNICA DE NOMINI -->
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-logo-container">
+          <img
+            id="brand-logo"
+            class="brand-logo"
+            src="./Logo/nomini.png"
+            alt="NOMINI"
+          >
+        </div>
+        <div class="brand-divider"></div>
+        <div class="brand-titles">
+          <div class="brand-title">NOMINI</div>
+          <span class="brand-module-badge">OCR</span>
+        </div>
+      </div>
+
+      <!-- SELECTOR DE MÓDULOS EN PESTAÑAS (SPA SIN RECARGAR) -->
+      <nav class="module-nav-tabs" role="tablist" aria-label="Módulos de Nomini">
+        <button id="btn-tab-clasificador" class="module-nav-tab is-active" type="button" role="tab" aria-selected="true" title="Visor interactivo y extracción estructurada por documento">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <span>OCR & Clasificación</span>
+        </button>
+
+        <button id="btn-tab-splitter" class="module-nav-tab" type="button" role="tab" aria-selected="false" title="Segmentador de expedientes PDF multipágina, miniaturas y corte físico">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="6" cy="6" r="3"/>
+            <circle cx="6" cy="18" r="3"/>
+            <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+            <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+            <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+          </svg>
+          <span>Segmentador & Corte</span>
+        </button>
+      </nav>
+
+      <div class="topbar-actions">
+        <div class="local-indicator" title="El procesamiento se realiza en tu equipo local sin enviar archivos a internet">
+          <span class="indicator-pulse"></span>
+          <svg class="indicator-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="indicator-text">PROCESAMIENTO LOCAL OFFLINE</span>
+        </div>
+
+        <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Alternar entre modo claro y modo oscuro (Obsidian)" aria-label="Cambiar tema">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2"/>
+            <path d="M12 20v2"/>
+            <path d="m4.93 4.93 1.41 1.41"/>
+            <path d="m17.66 17.66 1.41 1.41"/>
+            <path d="M2 12h2"/>
+            <path d="M20 12h2"/>
+            <path d="m6.34 17.66-1.41 1.41"/>
+            <path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+          </svg>
+        </button>
+
+        <!-- PÍLDORA DE SESIÓN / USUARIO ACTIVO -->
+        <div id="topbar-user-pill" style="display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); font-size:0.78rem; font-weight:700;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span id="topbar-user-name">OPERADOR</span>
+          <button id="btn-topbar-logout" type="button" title="Cerrar sesión" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:2px; display:flex; align-items:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MÓDULO 1: OCR & CLASIFICACIÓN INDIVIDUAL -->
+    <div id="module-clasificador" class="app-module-container">
+      <!-- ÁREA DE TRABAJO PRINCIPAL -->
+      <main class="workspace">
+      <!-- PANEL IZQUIERDO: VISOR DOCUMENTAL -->
+      <section class="panel viewer-panel" aria-labelledby="viewer-title">
+        <div class="nomini-dots-watermark" aria-hidden="true"></div>
+
+        <div class="panel-heading viewer-heading">
+          <div class="heading-content">
+            <div class="step-label">
+              <span class="step-num">01</span>
+              <span class="step-text">DOCUMENTO</span>
+            </div>
+            <h1 id="viewer-title">Carga y revisión</h1>
+            <p class="panel-subtitle">Agrega uno o varios archivos individuales o un archivo comprimido ZIP.</p>
+          </div>
+          <button id="open-document" class="button button-secondary" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            <span>Agregar documentos</span>
+          </button>
+        </div>
+
+        <!-- ZONA DE CARGA (DROP ZONE) -->
+        <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Arrastra documentos o un ZIP aquí, o pulsa para seleccionar">
+          <div class="drop-message">
+            <div class="drop-icon-wrapper">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <strong>Suelta aquí contratos, DNI o carnés</strong>
+            <p class="drop-formats-row">
+              <span class="format-pill">PDF</span>
+              <span class="format-pill">JPG</span>
+              <span class="format-pill">PNG</span>
+              <span class="format-pill">ZIP</span>
+              <span class="format-meta">· Hasta 40 archivos por lote</span>
+            </p>
+            <span class="drop-hint">o pulsa <b class="highlight-action">Agregar documentos</b> para buscarlos en tu PC</span>
+          </div>
+        </div>
+        <input id="web-file-picker" type="file" accept=".pdf,.jpg,.jpeg,.png,.zip" multiple hidden>
+
+        <!-- VISOR DE DOCUMENTO (CANVAS Y CONTROLES) -->
+        <div id="document-view" class="document-view" hidden>
+          <!-- NAVEGADOR DE DOCUMENTOS DEL LOTE -->
+          <div id="batch-doc-nav" class="batch-doc-nav" hidden>
+            <div class="batch-nav-meta">
+              <span class="batch-doc-pill">DOCUMENTO ACTIVO</span>
+              <strong id="batch-doc-index">Doc 1 de 1</strong>
+              <span id="batch-doc-current-name" class="batch-doc-current-name">—</span>
+            </div>
+            <div class="batch-nav-ctrls">
+              <button id="prev-doc" class="button button-secondary button-sm" type="button" title="Ver documento anterior del lote">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+                <span>Doc Anterior</span>
+              </button>
+              <button id="next-doc" class="button button-secondary button-sm" type="button" title="Ver documento siguiente del lote">
+                <span>Doc Siguiente</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="document-toolbar">
+            <div class="page-controls">
+              <button id="prev-page" class="tool-button" type="button" aria-label="Página anterior" title="Página anterior">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+              </button>
+              <span id="page-counter" class="page-counter">— / —</span>
+              <button id="next-page" class="tool-button" type="button" aria-label="Página siguiente" title="Página siguiente">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="view-controls">
+              <button id="zoom-out" class="tool-button" type="button" aria-label="Alejar" title="Alejar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <line x1="8" y1="11" x2="14" y2="11"/>
+                </svg>
+              </button>
+              <span id="zoom-label" class="zoom-label">100%</span>
+              <button id="zoom-in" class="tool-button" type="button" aria-label="Acercar" title="Acercar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <line x1="11" y1="8" x2="11" y2="14"/>
+                  <line x1="8" y1="11" x2="14" y2="11"/>
+                </svg>
+              </button>
+              <button id="zoom-reset" class="tool-button tool-text" type="button" title="Restablecer tamaño original">1:1</button>
+              <span class="toolbar-divider"></span>
+              <button id="rotate-90" class="tool-button tool-text" type="button" title="Rotar 90 grados a la derecha">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                  <path d="M21 3v5h-5"/>
+                </svg>
+                <span>90°</span>
+              </button>
+              <button id="rotate-180" class="tool-button tool-text" type="button" title="Rotar 180 grados">
+                <span>180°</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="canvas-stage" class="canvas-stage">
+            <canvas id="document-canvas" aria-label="Vista previa del documento"></canvas>
+            <div id="canvas-loading" class="canvas-loading" hidden>
+              <span class="loading-spinner"></span>
+              <span>Renderizando página…</span>
+            </div>
+          </div>
+
+          <div class="document-meta">
+            <div class="document-meta-file">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span id="document-name">—</span>
+            </div>
+            <span id="document-kind">SIN ARCHIVO</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- PANEL DERECHO: ANÁLISIS Y CLASIFICACIÓN LOCAL -->
+      <section class="panel extraction-panel" aria-labelledby="extraction-title">
+        <div class="nomini-dots-watermark" aria-hidden="true"></div>
+
+        <div class="panel-heading extraction-heading">
+          <div class="heading-content">
+            <div class="step-label">
+              <span class="step-num">02</span>
+              <span class="step-text">ANÁLISIS LOCAL</span>
+            </div>
+            <h2 id="extraction-title">Clasificación documental</h2>
+            <p class="panel-subtitle">Identificación de documentos y extracción automática de información laboral.</p>
+          </div>
+          <span id="category-badge" class="category-badge category-neutral">DESCONOCIDO</span>
+        </div>
+
+        <!-- ESTADO INICIAL / VACÍO -->
+        <section id="classification-empty" class="classification-state classification-empty">
+          <div class="empty-state-card">
+            <div class="state-illustration" aria-hidden="true">
+              <div class="state-sheet sheet-back"></div>
+              <div class="state-sheet sheet-front">
+                <i class="bar-accent"></i>
+                <i class="bar-subtle"></i>
+                <i class="bar-subtle"></i>
+              </div>
+              <div class="state-spark-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                </svg>
+              </div>
+            </div>
+            <h3>Listo para analizar</h3>
+            <p>Al cargar tus documentos, el motor OCR los inspeccionará uno por uno y clasificará su tipo (DNI, Contrato, SUCAMEC, Certiadulto).</p>
+          </div>
+
+          <div class="workflow-steps">
+            <div class="workflow-step-card">
+              <span class="step-pill-badge">1</span>
+              <div class="step-info">
+                <strong>Carga de archivos</strong>
+                <small>PDF, imágenes o ZIP</small>
+              </div>
+            </div>
+            <div class="workflow-step-card">
+              <span class="step-pill-badge">2</span>
+              <div class="step-info">
+                <strong>Lectura OCR Local</strong>
+                <small>100% privado en tu PC</small>
+              </div>
+            </div>
+            <div class="workflow-step-card">
+              <span class="step-pill-badge">3</span>
+              <div class="step-info">
+                <strong>Clasificación</strong>
+                <small>Extracción estructurada</small>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PROGRESO DEL PROCESAMIENTO OCR -->
+        <section id="classification-progress" class="classification-state classification-progress" hidden aria-live="polite">
+          <div class="scanner-animation" aria-hidden="true">
+            <span class="scanner-laser"></span>
+            <i class="scanner-col"></i>
+            <i class="scanner-col tall"></i>
+            <i class="scanner-col"></i>
+          </div>
+          <div class="progress-copy">
+            <strong id="progress-title">Procesando documentos con OCR…</strong>
+            <span id="progress-detail">Extracción y clasificación en ejecución local.</span>
+          </div>
+          <div class="progress-track">
+            <span id="progress-bar"></span>
+          </div>
+          <div class="progress-meta">
+            <span id="progress-count">0 de 0</span>
+            <span id="progress-percent">0%</span>
+          </div>
+        </section>
+
+        <!-- LISTA Y COLA DE ARCHIVOS DEL LOTE -->
+        <section id="batch-section" class="batch-section" aria-label="Clasificación por documento" hidden>
+          <div class="batch-heading">
+            <div class="batch-header-left">
+              <span class="batch-title">RESULTADOS DEL LOTE</span>
+              <div class="batch-subtitle">
+                <span id="batch-count" class="batch-count">0</span>
+                <span>documentos detectados</span>
+              </div>
+            </div>
+            <div class="batch-actions">
+              <button id="analyze-batch" class="button button-secondary batch-analyze-button" type="button" disabled hidden>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 21h5v-5"/>
+                </svg>
+                <span>Reintentar pendientes</span>
+              </button>
+              <button id="clear-batch" class="button-text-action" type="button">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                </svg>
+                <span>Nuevo lote</span>
+              </button>
+            </div>
+          </div>
+          <div id="batch-list" class="batch-list"></div>
+          <p id="analysis-status" class="analysis-status" role="status" aria-live="polite">Esperando resultados…</p>
+        </section>
+
+        <!-- CAMPOS EXTRAÍDOS (DETALLES Y EDICIÓN) -->
+        <section id="extraction-details" class="extraction-details" hidden>
+          <div class="details-heading">
+            <div class="step-label">
+              <span class="step-num">03</span>
+              <span class="step-text">CAMPOS EXTRAÍDOS</span>
+            </div>
+            <div class="details-actions">
+              <span class="details-hint">Edita o valida los valores detectados</span>
+              <button id="analyze-button" class="button button-secondary button-sm" type="button" title="Volver a procesar el OCR de este archivo">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 21h5v-5"/>
+                </svg>
+                <span>Reanalizar</span>
+              </button>
+            </div>
+          </div>
+
+          <form id="extraction-form" autocomplete="off">
+            <div class="form-grid">
+              <label class="field field-half">
+                <span class="field-label">RUC del empleador</span>
+                <input name="ruc" type="text" inputmode="numeric" placeholder="11 dígitos" class="nomini-input">
+              </label>
+
+              <label class="field field-half">
+                <span class="field-label">Razón social</span>
+                <input name="razonSocial" type="text" placeholder="Empresa empleadora" class="nomini-input">
+              </label>
+
+              <label class="field field-full">
+                <span class="field-label">Nombre completo del trabajador</span>
+                <input name="nombre" type="text" placeholder="Apellidos y nombres" class="nomini-input">
+              </label>
+
+              <label class="field field-half">
+                <span class="field-label">DNI del trabajador</span>
+                <input name="dni" type="text" inputmode="numeric" maxlength="8" placeholder="8 dígitos" class="nomini-input">
+              </label>
+
+              <label class="field field-half">
+                <span class="field-label">Puesto / cargo</span>
+                <input name="cargo" type="text" placeholder="Cargo identificado" class="nomini-input">
+              </label>
+
+              <label class="field field-half">
+                <span class="field-label">Sueldo básico (S/)</span>
+                <input name="sueldo" type="text" inputmode="decimal" placeholder="0.00" class="nomini-input input-numeric">
+              </label>
+
+              <label class="field field-half">
+                <span class="field-label">Cliente / unidad de servicio</span>
+                <input name="cliente" type="text" placeholder="Cliente o sede asignada" class="nomini-input">
+              </label>
+
+              <label class="field field-full">
+                <span class="field-label">Fecha de emisión</span>
+                <input name="fechaEmision" type="text" placeholder="DD/MM/AAAA" class="nomini-input">
+              </label>
+
+              <label class="field field-half">
+                <span class="field-label">Vigencia desde</span>
+                <input name="vigenciaDesde" type="text" placeholder="DD/MM/AAAA" class="nomini-input">
+              </label>
+
+              <label class="field field-half">
+                <div class="field-label-row">
+                  <span class="field-label">Vigencia hasta / Caducidad</span>
+                  <span id="semaforo-badge" class="semaforo-pill" hidden>VIGENTE</span>
+                </div>
+                <input name="vigenciaHasta" id="field-vigencia-hasta" type="text" placeholder="DD/MM/AAAA" class="nomini-input">
+              </label>
+            </div>
+          </form>
+
+          <details class="ocr-details">
+            <summary>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <span>Texto OCR sin procesar</span>
+            </summary>
+            <pre id="ocr-text">El texto detectado aparecerá aquí después del análisis.</pre>
+          </details>
+
+          <footer class="panel-footer">
+            <span id="save-status" class="save-status" role="status" aria-live="polite"></span>
+            <div class="footer-actions">
+              <button id="copy-json" class="button button-secondary" type="button" disabled title="Copiar datos extraídos en portapapeles">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span>Copiar JSON</span>
+              </button>
+              <button id="save-json" class="button button-secondary" type="button" disabled title="Descargar archivo JSON estructurado">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span>Guardar JSON</span>
+              </button>
+              <button id="insert-db" class="button button-success" type="button" disabled title="Confirmar e insertar automáticamente en el legajo del trabajador en base de datos">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                </svg>
+                <span>Confirmar e Insertar en BD</span>
+              </button>
+            </div>
+          </footer>
+          <p class="save-note">Guardado local en JSON estructurado para integración directa con NOMINI ERP.</p>
+        </section>
+      </section>
+    </main>
+  </div>
+  <!-- FIN MÓDULO 1 -->
+
+  <!-- MÓDULO 2: SEGMENTADOR & CORTE FÍSICO (100% PERSISTENTE EN MEMORIA) -->
+  <div id="module-splitter" class="app-module-container" hidden>
+    <!-- BARRA SUPERIOR DE ACCIONES DE EXPEDIENTE -->
+    <div class="expediente-action-bar">
+      <div class="expediente-main-ctrls">
+        <button id="btn-select-pdf" class="button button-primary" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Abrir Expediente PDF</span>
+        </button>
+        <input id="hidden-file-input" type="file" accept=".pdf" hidden>
+
+        <div class="expediente-meta-pill">
+          <span class="meta-label">Expediente:</span>
+          <strong id="meta-filename">Ningún archivo cargado</strong>
+        </div>
+
+        <div id="meta-outdir-pill" class="expediente-meta-pill outdir-pill" hidden>
+          <span class="meta-label">Salida:</span>
+          <span id="meta-outdir" class="outdir-text">—</span>
+        </div>
+
+        <button id="btn-reset-splitter" class="button button-secondary button-reset-expediente" type="button" title="Limpiar todo para comenzar con otro expediente" hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+          </svg>
+          <span>Limpiar</span>
+        </button>
+      </div>
+
+      <div class="expediente-stats-quick">
+        <span id="badge-total-pages" class="stat-chip" hidden>0 páginas</span>
+        <span id="badge-total-cuts" class="stat-chip stat-chip-success" hidden>0 sub-PDFs</span>
+        <span id="badge-unidentified-count" class="stat-chip stat-chip-danger" hidden>0 por revisar</span>
+      </div>
+    </div>
+
+    <!-- ESPACIO DE TRABAJO PRINCIPAL: LAYOUT DE 3 COLUMNAS -->
+    <main class="splitter-workspace">
+
+      <!-- COLUMNA 1: TIRA DE MINIATURAS (THUMBNAILS) -->
+      <section class="panel strip-panel" aria-labelledby="strip-title">
+        <div class="panel-heading compact-heading">
+          <div class="heading-content">
+            <div class="step-label">
+              <span class="step-num">01</span>
+              <span class="step-text">PÁGINAS ORIGINALES</span>
+            </div>
+            <h2 id="strip-title" class="col-title">Tira de Miniaturas</h2>
+          </div>
+          <span id="strip-counter-badge" class="badge-counter">0</span>
+        </div>
+
+        <!-- LISTA SCROLLABLE DE MINIATURAS -->
+        <div id="thumbnails-container" class="thumbnails-container">
+          <div class="empty-strip-state">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+            <p>Carga un expediente escaneado para ver y organizar sus páginas.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMNA 2: VISOR CENTRAL EN CANVAS -->
+      <section class="panel viewer-panel" aria-labelledby="splitter-viewer-title">
+        <div class="panel-heading compact-heading">
+          <div class="heading-content">
+            <div class="step-label">
+              <span class="step-num">02</span>
+              <span class="step-text">INSPECCIÓN DETALLADA</span>
+            </div>
+            <h2 id="splitter-viewer-title" class="col-title">Visor Central</h2>
+          </div>
+          <div id="active-page-classification-badge" class="category-badge category-neutral">SIN PÁGINA</div>
+        </div>
+
+        <div class="document-toolbar">
+          <div class="page-controls">
+            <button id="prev-page-btn" class="tool-button" type="button" title="Página anterior" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+            <span id="page-indicator" class="page-counter">— / —</span>
+            <button id="next-page-btn" class="tool-button" type="button" title="Página siguiente" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="view-controls">
+            <button id="zoom-out-btn" class="tool-button" type="button" title="Alejar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+              </svg>
+            </button>
+            <span id="zoom-value" class="zoom-label">100%</span>
+            <button id="zoom-in-btn" class="tool-button" type="button" title="Acercar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+              </svg>
+            </button>
+            <button id="zoom-fit-btn" class="tool-button tool-text" type="button" title="Ajustar al alto de pantalla">Ajustar</button>
+            <span class="toolbar-divider"></span>
+            <button id="rotate-90-btn" class="tool-button tool-text" type="button" title="Rotar 90 grados">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+              </svg>
+              <span>90°</span>
+            </button>
+            <span class="toolbar-divider"></span>
+            <button id="btn-maximize-viewer" class="tool-button tool-text" type="button" title="Maximizar visor a pantalla completa (Esc para salir)">
+              <svg class="icon-maximize" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+              </svg>
+              <svg class="icon-minimize" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="display:none;">
+                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>
+              </svg>
+              <span id="btn-maximize-label">Maximizar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- STAGE DE CANVAS -->
+        <div id="splitter-canvas-stage" class="canvas-stage splitter-canvas-stage">
+          <div id="splitter-drop-zone" class="splitter-drop-zone">
+            <div class="drop-illustration">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <path d="m9 15 3-3 3 3"/>
+                <path d="M12 12v9"/>
+              </svg>
+            </div>
+            <h3>Arrastra aquí el expediente laboral (PDF)</h3>
+            <p>Contratos multipágina, carnés SUCAMEC, DNIs y Certificados serán identificados y cortados automáticamente.</p>
+          </div>
+
+          <canvas id="splitter-canvas" class="splitter-canvas" hidden></canvas>
+
+          <!-- OVERLAY DE CARGA Y PROGRESO CENTRADO -->
+          <div id="splitter-loading-overlay" class="splitter-loading-overlay" hidden>
+            <div class="splitter-loading-card">
+              <div class="loading-icon-wrapper">
+                <svg class="loading-spinner-svg" viewBox="0 0 50 50">
+                  <circle class="spinner-path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+                </svg>
+                <div class="loading-doc-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="loading-info">
+                <h3 id="canvas-loading-title" class="loading-title">Procesando Expediente</h3>
+                <p id="canvas-loading-text" class="loading-desc">Inspeccionando páginas y reconociendo texto...</p>
+              </div>
+
+              <div class="loading-progress-box">
+                <div class="progress-labels">
+                  <span id="loading-page-badge" class="loading-page-chip">Iniciando...</span>
+                  <span id="loading-percent-badge" class="loading-percent-chip">0%</span>
+                </div>
+                <div class="splitter-progress-track">
+                  <div id="splitter-progress-bar" class="splitter-progress-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <div class="loading-subtext">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2"/>
+                  <rect x="9" y="9" width="6" height="6"/>
+                  <line x1="9" y1="1" x2="9" y2="4"/>
+                  <line x1="15" y1="1" x2="15" y2="4"/>
+                  <line x1="9" y1="20" x2="9" y2="23"/>
+                  <line x1="15" y1="20" x2="15" y2="23"/>
+                  <line x1="20" y1="9" x2="23" y2="9"/>
+                  <line x1="20" y1="14" x2="23" y2="14"/>
+                  <line x1="1" y1="9" x2="4" y2="9"/>
+                  <line x1="1" y1="14" x2="4" y2="14"/>
+                </svg>
+                <span>Motor OCR local WebAssembly • 100% Offline</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FOOTER METADATA DE LA PÁGINA ACTIVA -->
+        <div class="active-page-footer">
+          <div class="footer-meta-left">
+            <span class="footer-label">Texto reconocido:</span>
+            <span id="active-page-text-snippet" class="text-snippet">—</span>
+          </div>
+          <div class="footer-meta-right">
+            <span id="active-page-ocr-type" class="badge-ocr-type">NATIVO</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMNA 3: PANEL DE CONFIRMACIÓN Y LOTES CORTADOS -->
+      <section class="panel cuts-panel" aria-labelledby="cuts-title">
+        <div class="panel-heading compact-heading">
+          <div class="heading-content">
+            <div class="step-label">
+              <span class="step-num">03</span>
+              <span class="step-text">CORTE FÍSICO Y GUARDADO</span>
+            </div>
+            <h2 id="cuts-title" class="col-title">Sub-PDFs Cortados</h2>
+          </div>
+          <button id="btn-re-segment" class="button button-secondary button-xs" type="button" title="Volver a cortar con las clasificaciones manuales">
+            Re-cortar
+          </button>
+        </div>
+
+        <!-- SECCIÓN DE DNI PRINCIPAL ASOCIADO -->
+        <div class="cuts-dni-box">
+          <label class="field-label-sm">DNI DEL TRABAJADOR ASOCIADO:</label>
+          <div class="input-with-action">
+            <input id="input-dni-principal" type="text" maxlength="8" placeholder="Ej. 45892314" class="nomini-input input-dni" autocomplete="off">
+            <button id="btn-apply-dni" class="button button-secondary button-sm" type="button" title="Aplicar DNI a todos los nombres de archivo">
+              Aplicar a todos
+            </button>
+          </div>
+        </div>
+
+        <!-- ALERTA DE REVISIÓN SI HAY NO_IDENTIFICADOS -->
+        <div id="review-alert-box" class="review-alert-box" style="cursor: pointer;" title="Haz clic para ver solo las páginas que requieren revisión" hidden>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>Páginas no identificadas detectadas. <strong>Clic aquí para filtrarlas y revisarlas.</strong></span>
+        </div>
+
+        <!-- BARRA DE FILTRO DE CORTES (TODOS / SOLO NO IDENTIFICADOS) -->
+        <div class="cuts-filter-bar">
+          <button id="filter-all-cuts" class="cuts-filter-btn is-active" type="button">
+            <span>Todos</span>
+            <span id="filter-badge-all" class="filter-count">0</span>
+          </button>
+          <button id="filter-unidentified-cuts" class="cuts-filter-btn" type="button" title="Filtrar y ver únicamente las páginas o sub-PDFs no identificados">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>No Identificados</span>
+            <span id="filter-badge-unidentified" class="filter-count filter-count-danger">0</span>
+          </button>
+        </div>
+
+        <!-- LISTA DE SEGMENTOS CORTADOS -->
+        <div id="cuts-list" class="cuts-list">
+          <div class="empty-cuts-state">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="6" cy="6" r="3"/>
+              <circle cx="6" cy="18" r="3"/>
+              <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+              <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+              <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+            </svg>
+            <p>Los archivos cortados con <b class="code-hl">pdf-lib</b> aparecerán aquí agrupados por documento.</p>
+          </div>
+        </div>
+
+        <!-- BOTÓN PRINCIPAL DE GUARDAR EN CARPETA FÍSICA -->
+        <div class="cuts-actions-footer">
+          <button id="btn-confirm-save-folder" class="button button-primary button-full" type="button" disabled title="Elegir carpeta y guardar sub-PDFs cortados en disco">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            <span>Guardar Como...</span>
+          </button>
+          <p id="save-status-msg" class="save-status-msg"></p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+  <!-- FIN MÓDULO 2 -->
+
+  <!-- MODAL DE CONFIRMACIÓN DE GUARDADO EXITOSO (VENTANA EMERGENTE PROFESIONAL) -->
+  <div id="modal-success-confirm" class="nomini-modal-overlay" hidden>
+    <div class="nomini-modal-card modal-card-success">
+      <div class="nomini-modal-header modal-success-header">
+        <div class="modal-title-lockup">
+          <div class="modal-icon-badge modal-icon-badge-success">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="color: #10b981;">¡Archivos Guardados con Éxito!</h3>
+            <p class="modal-desc">El expediente fue segmentado y cortado físicamente en disco.</p>
+          </div>
+        </div>
+        <button id="modal-success-close-icon" class="modal-close-icon-btn" type="button" aria-label="Cerrar modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="nomini-modal-body">
+        <div class="success-info-card">
+          <div class="success-info-row">
+            <span class="info-label">Carpeta de Destino:</span>
+            <strong id="modal-success-folder" class="info-value info-path">G:\KALEF\PRUEBA DOCUEMNTS</strong>
+          </div>
+          <div class="success-info-row">
+            <span class="info-label">Sub-PDFs generados:</span>
+            <span id="modal-success-count" class="info-badge-success">0 archivos</span>
+          </div>
+          <div class="success-info-row">
+            <span class="info-label">DNI Trabajador:</span>
+            <span id="modal-success-dni" class="info-value info-dni">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="nomini-modal-footer">
+        <button id="modal-success-close-btn" class="button button-secondary" type="button">Cerrar</button>
+        <button id="modal-success-open-btn" class="button button-primary" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>Abrir Carpeta en Windows</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE AVISO / ALERTA PROFESIONAL (SIN ALERTAS NATIVAS DE LOCALHOST) -->
+  <div id="modal-alert-notice" class="nomini-modal-overlay" hidden>
+    <div class="nomini-modal-card" style="max-width: 440px;">
+      <div class="nomini-modal-header">
+        <div class="modal-title-lockup">
+          <div id="modal-alert-icon-badge" class="modal-icon-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="modal-alert-title" class="modal-title">Aviso del Sistema</h3>
+            <p id="modal-alert-desc" class="modal-desc">Información del proceso</p>
+          </div>
+        </div>
+        <button id="modal-alert-close-icon" class="modal-close-icon-btn" type="button" aria-label="Cerrar modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="nomini-modal-body">
+        <p id="modal-alert-message" style="font-size: 13px; line-height: 1.5; color: var(--text-primary); margin: 0;"></p>
+      </div>
+      <div class="nomini-modal-footer">
+        <button id="modal-alert-ok-btn" class="button button-primary" type="button">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./visorRenderer.js?v=3.2"></script>
+  <script type="module" src="./visorSplitter.js?v=3.2"></script>
+  <script>
+    (function() {
+      const tabClasificador = document.getElementById('btn-tab-clasificador');
+      const tabSplitter = document.getElementById('btn-tab-splitter');
+      const modClasificador = document.getElementById('module-clasificador');
+      const modSplitter = document.getElementById('module-splitter');
+
+      function switchModule(name) {
+        if (name === 'splitter') {
+          modClasificador.hidden = true;
+          modSplitter.hidden = false;
+          tabClasificador.classList.remove('is-active');
+          tabClasificador.setAttribute('aria-selected', 'false');
+          tabSplitter.classList.add('is-active');
+          tabSplitter.setAttribute('aria-selected', 'true');
+          try { history.replaceState(null, '', '#splitter'); } catch (_) {}
+          window.dispatchEvent(new Event('resize'));
+        } else {
+          modSplitter.hidden = true;
+          modClasificador.hidden = false;
+          tabSplitter.classList.remove('is-active');
+          tabSplitter.setAttribute('aria-selected', 'false');
+          tabClasificador.classList.add('is-active');
+          tabClasificador.setAttribute('aria-selected', 'true');
+          try { history.replaceState(null, '', '#clasificador'); } catch (_) {}
+          window.dispatchEvent(new Event('resize'));
+        }
+      }
+
+      tabClasificador.addEventListener('click', () => switchModule('clasificador'));
+      tabSplitter.addEventListener('click', () => switchModule('splitter'));
+
+      if (window.location.hash === '#splitter') {
+        switchModule('splitter');
+      }
+    })();
+  </script>
+
+  <!-- PANTALLA COMPLETA DE LOGIN CANÓNICO DE NOMINI (MODO LECTURA DE PANEL-CEJOZ-ADMIN) -->
+  <div id="nomini-login-screen">
+    <!-- PANEL IZQUIERDO: BRANDING & ARTWORK -->
+    <div class="login-left-panel">
+      <svg class="login-artwork" viewBox="0 0 1400 1100" preserveAspectRatio="xMaxYMid slice" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="login-column-front" x2="0" y2="1">
+            <stop stop-color="#d8f5ff" stop-opacity=".57" />
+            <stop offset="1" stop-color="#4aa7f5" stop-opacity=".16" />
+          </linearGradient>
+          <linearGradient id="login-column-side" x2="0" y2="1">
+            <stop stop-color="#84cbff" stop-opacity=".42" />
+            <stop offset="1" stop-color="#1554ad" stop-opacity=".28" />
+          </linearGradient>
+          <g id="login-glass-column" stroke="#dff6ff" stroke-width="1.2" stroke-linejoin="round">
+            <path d="M0 0v-252h42V0Z" fill="url(#login-column-front)" stroke-opacity=".68" />
+            <path d="M42 0l15-11v-252l-15 11Z" fill="url(#login-column-side)" stroke-opacity=".52" />
+            <path d="M0-252l15-11h42l-15 11Z" fill="#e8fbff" fill-opacity=".60" stroke-opacity=".86" />
+            <path d="M5-246h32" fill="none" stroke="#fff" stroke-width="2" stroke-opacity=".72" />
+          </g>
+          <radialGradient id="login-art-glow">
+            <stop stop-color="var(--login-art-glow)" stop-opacity=".22" />
+            <stop offset="1" stop-color="var(--login-art-glow)" stop-opacity="0" />
+          </radialGradient>
+          <linearGradient id="login-art-fade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset=".26" stop-color="white" stop-opacity="0" />
+            <stop offset=".62" stop-color="white" stop-opacity=".8" />
+            <stop offset="1" stop-color="white" />
+          </linearGradient>
+          <mask id="login-art-mask"><rect width="1400" height="1100" fill="url(#login-art-fade)" /></mask>
+          <linearGradient id="login-core-glass" x2="1" y2="1">
+            <stop stop-color="#60a5fa" stop-opacity=".42" />
+            <stop offset="1" stop-color="#172d62" stop-opacity=".17" />
+          </linearGradient>
+          <ellipse id="login-orbit-track" rx="240" ry="96" />
+        </defs>
+
+        <g class="login-art-columns" mask="url(#login-art-mask)">
+          <ellipse cx="1145" cy="560" rx="390" ry="350" fill="url(#login-art-glow)" />
+          <g fill="none" stroke="#d4efff" stroke-opacity=".28">
+            <path d="M874 733 1331 661l63-47-457 72Z" />
+            <path d="m909 707 457-72m-502 114 457-72m-457 88 457-72" stroke-opacity=".17" />
+            <path d="M929 654V378m204 244V347m205 244V315" stroke-dasharray="3 9" />
+          </g>
+          <g class="login-column-wave">
+            <g transform="translate(929 716)"><use href="#login-glass-column" /></g>
+            <g transform="translate(998 705)"><use href="#login-glass-column" /></g>
+            <g transform="translate(1067 694)"><use href="#login-glass-column" /></g>
+            <g transform="translate(1136 683)"><use href="#login-glass-column" /></g>
+            <g transform="translate(1205 672)"><use href="#login-glass-column" /></g>
+            <g transform="translate(1274 661)"><use href="#login-glass-column" /></g>
+          </g>
+        </g>
+        <g class="login-art-constellation" mask="url(#login-art-mask)">
+          <ellipse cx="1120" cy="535" rx="348" ry="368" fill="url(#login-art-glow)" />
+          <g transform="translate(1120 535) scale(.88)">
+            <g fill="none" stroke="#4e80c4" stroke-opacity=".28">
+              <circle r="228" stroke-dasharray="2 10" />
+              <circle r="250" stroke-dasharray="40 350" pathLength="1560" />
+              <path d="M0-290v24m0 532v24M-286 0h20m532 0h20" />
+            </g>
+            <g class="login-orbit-core" stroke-linejoin="round">
+              <path d="M0-169 118 4 0 171-118 4Z" fill="url(#login-core-glass)" stroke="#8abcf9" stroke-opacity=".78" stroke-width="1.4" />
+              <path d="M0-169 38 34 0 171-118 4Z" fill="#4389f3" fill-opacity=".12" />
+              <path d="M0-169 38 34 0 171m-118-167L38 34 118 4" fill="none" stroke="#8abcf9" stroke-opacity=".55" />
+              <path d="M0-169-30-29 0 171m-118-167L-30-29 118 4" fill="none" stroke="#588ed2" stroke-opacity=".32" stroke-dasharray="4 6" />
+              <path d="M0-97 66 4 0 99-66 4Z" fill="#356ed7" fill-opacity=".15" stroke="#78adff" stroke-opacity=".46" />
+              <circle r="15" fill="#60a5fa" fill-opacity=".18" />
+              <circle r="5" fill="#dbeafe" />
+            </g>
+            <g transform="rotate(-33)">
+              <use href="#login-orbit-track" fill="none" stroke="#74aaff" stroke-opacity=".50" />
+              <g class="login-orbit-node">
+                <circle r="16" fill="#60a5fa" fill-opacity=".18" />
+                <circle r="8" fill="#60a5fa" fill-opacity=".46" />
+                <circle r="4.5" fill="#e6f4ff" />
+              </g>
+            </g>
+            <g transform="rotate(41)">
+              <use href="#login-orbit-track" fill="none" stroke="#528de1" stroke-opacity=".40" />
+              <g class="login-orbit-node login-orbit-node-secondary">
+                <circle r="11" fill="#6c9fff" fill-opacity=".22" />
+                <circle r="3.5" fill="#a7cbff" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+
+      <div class="login-left-content">
+        <div class="login-left-brand">
+          <img src="./Logo/nomini_white.png" alt="Logo NOMINI" class="login-left-logo" />
+          <span class="login-left-brand-title">
+            NOMINI <span class="login-left-brand-divider"></span> <span class="login-left-brand-ocr">OCR</span>
+          </span>
+        </div>
+        <h1 class="login-left-headline">Extracción inteligente, clasificación y segmentación de documentos.</h1>
+        <p class="login-left-sub">
+          Reconocimiento óptico de caracteres (OCR) de alta precisión, lectura de expedientes, boletas, DNI y corte físico automatizado 100% offline.
+        </p>
+        <div class="login-left-stats">
+          <div class="login-stat-badge">
+            <strong>100%</strong>
+            <span>Local Offline</span>
+          </div>
+          <div class="login-stat-badge">
+            <strong>+99.4%</strong>
+            <span>Precisión OCR</span>
+          </div>
+          <div class="login-stat-badge">
+            <strong>0 ms</strong>
+            <span>Fuga de Datos</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL DERECHO: FORMULARIO DE ACCESO -->
+    <div class="login-right-panel">
+      <!-- BOTÓN FLOTANTE TEMA -->
+      <button id="login-theme-toggle" class="login-theme-toggle" type="button" title="Alternar tema claro / oscuro" aria-label="Cambiar tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+
+      <!-- TARJETA 1: REINGRESO RÁPIDO CON 1 CLIC (SI ESTÁ RECORDADO) -->
+      <div id="login-form-reentry" class="login-card login-reentry-card" hidden>
+        <div id="login-reentry-avatar" class="login-avatar-circle">AD</div>
+        <span class="login-reentry-tag">Sesión recordada</span>
+        <h2 id="login-reentry-name" class="login-reentry-user-name">ADMINISTRADOR</h2>
+        <p id="login-reentry-user" class="login-reentry-user-sub">@ADMIN</p>
+
+        <button id="btn-reentry-submit" type="button" class="btn-login-submit">
+          <span>Ingresar a NOMINI</span>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+        </button>
+
+        <div class="login-reentry-actions">
+          <button id="btn-switch-account" type="button" class="btn-link-action">Ingresar con otra cuenta</button>
+          <button id="btn-forget-account" type="button" class="btn-link-action muted">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>Olvidar esta cuenta en este equipo</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TARJETA 2: FORMULARIO NORMAL -->
+      <form id="login-form-normal" class="login-card">
+        <h2>Iniciar sesión</h2>
+        <p class="login-subtitle">Ingresa tus credenciales corporativas para continuar</p>
+
+        <div class="login-field">
+          <label for="login-username">Usuario</label>
+          <div class="login-input-wrap">
+            <span class="login-input-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <input type="text" id="login-username" placeholder="Tu usuario corporativo" autocomplete="username" spellcheck="false" />
+          </div>
+        </div>
+
+        <div class="login-field">
+          <label for="login-password">Contraseña</label>
+          <div class="login-input-wrap">
+            <span class="login-input-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+            <button type="button" id="login-eye-btn" class="login-eye-btn" title="Mostrar u ocultar contraseña">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-3.62 1.05a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="login-error-msg" class="login-error-msg"></div>
+
+        <button id="btn-login-submit" type="submit" class="btn-login-submit">
+          Ingresar
+        </button>
+
+        <div class="login-divider">
+          <hr />
+          <span>o</span>
+          <hr />
+        </div>
+
+        <button id="btn-login-forgot-pass" type="button" class="btn-login-forgot">
+          ¿Olvidaste tu contraseña?
+        </button>
+      </form>
+
+      <p class="login-footer">
+        ¿Problemas para ingresar? Contacta a <button type="button" id="btn-open-login-support" class="login-support-link">soporte técnico</button>
+      </p>
+    </div>
+  </div>
+
+  <!-- MODAL DE SOPORTE Y AYUDA -->
+  <dialog id="login-support-modal" class="login-support-dialog">
+    <div class="login-support-topline">NOMINI <span>Centro de ayuda</span></div>
+    <div class="login-support-body">
+      <h3>Estamos para ayudarte</h3>
+      <p>Resolvamos tus dudas de acceso, configuración o licencia corporativa. Elige cómo prefieres contactarnos:</p>
+
+      <a class="login-contact-btn whatsapp" href="https://wa.me/51964938713?text=Hola,%20necesito%20soporte%20tecnico%20para%20ingresar%20a%20NOMINI" target="_blank" rel="noopener noreferrer">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+        <span>
+          <strong>Conversemos por WhatsApp</strong>
+          <small>+51 964 938 713</small>
+        </span>
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7V17"/>
+        </svg>
+      </a>
+
+      <a class="login-contact-btn email" href="mailto:jkalef96@gmail.com?subject=NOMINI%20-%20Soporte%20Tecnico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <span>
+          <strong>Correo de soporte</strong>
+          <small>jkalef96@gmail.com</small>
+        </span>
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7V17"/>
+        </svg>
+      </a>
+    </div>
+    <button type="button" id="btn-close-login-support" class="login-support-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"/>
+        <polyline points="12 19 5 12 12 5"/>
+      </svg>
+      <span>Volver a iniciar sesión</span>
+    </button>
+  </dialog>
+
+  <script src="./login.js?v=1.0"></script>
+</body>
+</html>

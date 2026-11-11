@@ -1,0 +1,25 @@
+# Dependencias y builds
+node_modules/
+release/
+dist/
+venv/
+__pycache__/
+*.pyc
+
+# Archivos de pruebas y temporales
+prueba.jpg
+test_clasificador.js
+download_traineddata.js
+inspeccionar.py
+extractor_doc.py
+extractor_surya.py
+
+# Logs y entorno local
+*.log
+.vscode/
+.gemini/
+scratch/
+
+# Datos pesados regenerables
+tessdata/
+spa.traineddata

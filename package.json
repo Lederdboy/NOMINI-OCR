@@ -1,0 +1,86 @@
+{
+  "name": "ocr-electron-local",
+  "version": "1.0.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node devServer.js",
+    "test:ocr": "node test_clasificador.js",
+    "download:lang": "node download_traineddata.js",
+    "electron": "electron .",
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis",
+    "electron:build": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.1.0",
+    "fflate": "^0.8.3",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.5.438",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.nomini.ocr",
+    "productName": "NOMINI OCR",
+    "copyright": "Copyright © 2026 NOMINI",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "**/*",
+      "!venv{,/**/*}",
+      "!**/*.py",
+      "!**/*.pyc",
+      "!**/__pycache__{,/**/*}",
+      "!test_clasificador.js",
+      "!download_traineddata.js",
+      "!prueba.jpg",
+      "!tessdata{,/**/*}"
+    ],
+    "asarUnpack": [
+      "node_modules/@napi-rs/canvas/**"
+    ],
+    "extraResources": [
+      {
+        "from": "tessdata/spa.traineddata",
+        "to": "tessdata/spa.traineddata"
+      },
+      {
+        "from": "node_modules/tesseract.js/src/worker-script",
+        "to": "tesseract/worker-script",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "node_modules/tesseract.js-core",
+        "to": "tesseract/core",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NOMINI OCR",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp"
+    }
+  }
+}
